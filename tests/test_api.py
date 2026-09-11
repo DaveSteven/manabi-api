@@ -212,3 +212,46 @@ def test_concurrent_exam_start_reuses_progress(client, account):
         responses = list(pool.map(lambda _: client.post(path, headers=account), range(2)))
     assert all(r.status_code == 200 for r in responses)
     assert len({r.json()['id'] for r in responses}) == 1
+
+
+def test_internal_accounts_require_admin_and_cannot_escalate(client, account, database, monkeypatch):
+    from app.models import User
+    payload = {'username': 'New_Internal', 'password': 'valid-internal-password', 'level': 'N2'}
+    path = '/api/v1/admin/users'
+    assert client.post(path, json=payload).status_code == 401
+    assert client.post(path, json=payload, headers=account).status_code == 403
+    with database() as db:
+        user = db.scalar(select(User).where(User.username == 'student_1'))
+        user.is_admin = True
+        db.commit()
+    monkeypatch.setenv('ENABLE_REGISTRATION', 'false')
+    assert client.post('/api/v1/auth/register', json=payload).status_code == 403
+    assert client.post(path, json={**payload, 'is_admin': True}, headers=account).status_code == 422
+    invalid = client.post(path, json={**payload, 'password': 'Xy9!?'}, headers=account)
+    assert invalid.status_code == 422 and 'Xy9!?' not in invalid.text
+    created = client.post(path, json=payload, headers=account)
+    assert created.status_code == 201
+    assert created.json()['username'] == 'new_internal'
+    assert created.json()['level'] == 'N2' and created.json()['is_admin'] is False
+    assert 'password' not in created.text and 'access_token' not in created.text
+    assert client.post(path, json=payload, headers=account).status_code == 409
+    login = client.post('/api/v1/auth/login', json=payload)
+    assert login.status_code == 200
+    headers = {'Authorization': 'Bearer '+login.json()['access_token']}
+    assert client.post(path, json={**payload, 'username':'another_internal'}, headers=headers).status_code == 403
+    assert client.get('/api/v1/me', headers=headers).json()['is_admin'] is False
+
+
+def test_admin_provision_preserves_progress_and_revokes_sessions(client, account, database):
+    from app.models import User
+    from scripts.set_admin import set_admin
+    practice, _ = create(client, account)
+    uid = client.get('/api/v1/me', headers=account).json()['id']
+    with database() as db:
+        assert set_admin(db, 'Student_1', 'replacement-password') == uid
+    assert client.get('/api/v1/me', headers=account).status_code == 401
+    assert client.post('/api/v1/auth/login', json={'username':'Student_1','password':'a-valid-password'}).status_code == 401
+    login = client.post('/api/v1/auth/login', json={'username':'Student_1','password':'replacement-password'}).json()
+    assert login['user']['is_admin'] is True and login['user']['id'] == uid
+    headers = {'Authorization': 'Bearer '+login['access_token']}
+    assert client.get('/api/v1/practices/'+practice['id'], headers=headers).status_code == 200

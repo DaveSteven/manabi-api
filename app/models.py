@@ -20,6 +20,7 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     username: Mapped[str | None] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str | None] = mapped_column(Text)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     level: Mapped[str] = mapped_column(String(2), default='N3')
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 

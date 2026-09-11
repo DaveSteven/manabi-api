@@ -66,6 +66,53 @@
         }
       }
     },
+    "/api/v1/admin/users": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "创建内部账号（仅管理员）",
+        "description": "先调用 /api/v1/auth/login，然后在 Authorize 中粘贴 access_token。创建的账号为普通用户，不开放管理员授权。",
+        "operationId": "create_internal_account_api_v1_admin_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -1446,6 +1493,39 @@
         ],
         "title": "IntensiveListeningOut"
       },
+      "InternalAccountCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[a-zA-Z0-9_.-]+$",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "N2",
+              "N3"
+            ],
+            "title": "Level",
+            "default": "N3"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "InternalAccountCreate"
+      },
       "ItemOut": {
         "properties": {
           "id": {
@@ -2144,6 +2224,11 @@
           "is_guest": {
             "type": "boolean",
             "title": "Is Guest"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "title": "Is Admin",
+            "default": false
           }
         },
         "type": "object",

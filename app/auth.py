@@ -33,7 +33,7 @@ def token_digest(value):
 
 
 def profile(user):
-    return dict(id=user.id, username=user.username, level=user.level, is_guest=user.username is None)
+    return dict(id=user.id, username=user.username, level=user.level, is_guest=user.username is None, is_admin=user.is_admin)
 
 
 def issue_token(db, user):
@@ -58,3 +58,9 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
 
 def lock_user(db, user):
     db.execute(select(User).where(User.id == user.id).with_for_update()).scalar_one()
+
+
+def current_admin(user=Depends(current_user)):
+    if not user.is_admin:
+        raise HTTPException(403, 'Administrator access required')
+    return user

@@ -12,11 +12,11 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import defer
 
-from .auth import bearer, current_user, hash_password, issue_token, lock_user, profile, token_digest, verify_password
+from .auth import bearer, current_admin, current_user, hash_password, issue_token, lock_user, profile, token_digest, verify_password
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AnswerIn, Credentials, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -76,6 +76,21 @@ def register(payload: Credentials, db=Depends(get_db)):
         db.rollback()
         raise HTTPException(409, 'Username already exists')
     return issue_token(db, user)
+
+
+@app.post('/api/v1/admin/users', response_model=UserOut, status_code=201, tags=['Admin'],
+          summary='创建内部账号（仅管理员）',
+          description='先调用 /api/v1/auth/login，然后在 Authorize 中粘贴 access_token。创建的账号为普通用户，不开放管理员授权。')
+def create_internal_account(payload: InternalAccountCreate, admin=Depends(current_admin), db=Depends(get_db)):
+    user = User(username=payload.username.lower(), password_hash=hash_password(payload.password),
+                level=payload.level, is_admin=False)
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, 'Username already exists')
+    return profile(user)
 
 
 @app.post('/api/v1/auth/login', response_model=TokenOut, tags=['Account'])

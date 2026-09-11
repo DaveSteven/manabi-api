@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 Level = Literal['N2', 'N3']
 
@@ -7,6 +7,11 @@ Level = Literal['N2', 'N3']
 class Credentials(BaseModel):
     username: str = Field(min_length=3, max_length=64, pattern=r'^[a-zA-Z0-9_.-]+$')
     password: str = Field(min_length=8, max_length=128)
+
+
+class InternalAccountCreate(Credentials):
+    model_config = ConfigDict(extra='forbid')
+    level: Level = 'N3'
 
 
 class ProfileUpdate(BaseModel):
@@ -36,6 +41,7 @@ class UserOut(BaseModel):
     username: str | None
     level: str
     is_guest: bool
+    is_admin: bool = False
 
 
 class TokenOut(BaseModel):
