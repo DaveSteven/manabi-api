@@ -1,0 +1,44 @@
+name: manabi
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: manabi
+      POSTGRES_DB: manabi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manabi -d manabi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 640m
+    logging: &logging
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgresql+psycopg://manabi:${POSTGRES_PASSWORD}@db:5432/manabi
+      JLPT_ASSETS_DIR: /data/assets
+      ENABLE_REGISTRATION: "false"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - ./assets:/data/assets:ro
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    mem_limit: 640m
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+volumes:
+  postgres:

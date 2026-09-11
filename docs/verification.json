@@ -1,0 +1,223 @@
+{
+  "status": "passed",
+  "types_checked": 36,
+  "media_range_checked": true,
+  "checks": [
+    {
+      "level": "N2",
+      "type_id": "kanji_reading",
+      "available": 159,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "orthography",
+      "available": 155,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "word_formation",
+      "available": 127,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "context_vocabulary",
+      "available": 215,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "paraphrase",
+      "available": 155,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "word_usage",
+      "available": 151,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "grammar_choice",
+      "available": 384,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "sentence_order",
+      "available": 157,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "text_grammar",
+      "available": 148,
+      "sample_size": 4
+    },
+    {
+      "level": "N2",
+      "type_id": "short_reading",
+      "available": 159,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "medium_reading",
+      "available": 273,
+      "sample_size": 3
+    },
+    {
+      "level": "N2",
+      "type_id": "integrated_reading",
+      "available": 58,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "argument_reading",
+      "available": 87,
+      "sample_size": 3
+    },
+    {
+      "level": "N2",
+      "type_id": "information_search",
+      "available": 62,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "listening_task",
+      "available": 157,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "listening_points",
+      "available": 185,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "listening_overview",
+      "available": 158,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "listening_response",
+      "available": 354,
+      "sample_size": 2
+    },
+    {
+      "level": "N2",
+      "type_id": "listening_integrated",
+      "available": 113,
+      "sample_size": 3
+    },
+    {
+      "level": "N3",
+      "type_id": "kanji_reading",
+      "available": 231,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "orthography",
+      "available": 174,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "context_vocabulary",
+      "available": 319,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "paraphrase",
+      "available": 145,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "word_usage",
+      "available": 145,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "grammar_choice",
+      "available": 377,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "sentence_order",
+      "available": 145,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "text_grammar",
+      "available": 135,
+      "sample_size": 5
+    },
+    {
+      "level": "N3",
+      "type_id": "short_reading",
+      "available": 116,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "medium_reading",
+      "available": 174,
+      "sample_size": 3
+    },
+    {
+      "level": "N3",
+      "type_id": "long_reading",
+      "available": 116,
+      "sample_size": 4
+    },
+    {
+      "level": "N3",
+      "type_id": "information_search",
+      "available": 58,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "listening_task",
+      "available": 174,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "listening_points",
+      "available": 174,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "listening_overview",
+      "available": 87,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "listening_expression",
+      "available": 116,
+      "sample_size": 2
+    },
+    {
+      "level": "N3",
+      "type_id": "listening_response",
+      "available": 259,
+      "sample_size": 2
+    }
+  ]
+}

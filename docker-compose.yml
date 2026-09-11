@@ -1,0 +1,33 @@
+name: manabi
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: manabi
+      POSTGRES_DB: manabi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Create .env first}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - manabi_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manabi -d manabi"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://manabi:${POSTGRES_PASSWORD}@db:5432/manabi
+      JLPT_ASSETS_DIR: /data/assets
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - ../mojitest_spider/data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  manabi_postgres:

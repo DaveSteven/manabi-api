@@ -1,0 +1,7 @@
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.5
+uvicorn==0.52.4
+SQLAlchemy==2.0.36
+psycopg[binary]==3.2.3
+alembic==1.14.0
