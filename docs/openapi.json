@@ -888,6 +888,190 @@
           }
         ]
       }
+    },
+    "/api/v1/exam-practice/exams": {
+      "get": {
+        "tags": [
+          "Exam practice"
+        ],
+        "summary": "List Exams",
+        "operationId": "list_exams_api_v1_exam_practice_exams_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "N2",
+                "N3"
+              ],
+              "type": "string",
+              "title": "Level"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "vocabulary",
+                "grammar",
+                "reading",
+                "listening"
+              ],
+              "type": "string",
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamPracticeList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exam-practice/exams/{exam_id}/types": {
+      "get": {
+        "tags": [
+          "Exam practice"
+        ],
+        "summary": "List Types",
+        "operationId": "list_types_api_v1_exam_practice_exams__exam_id__types_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exam_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exam Id"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "vocabulary",
+                "grammar",
+                "reading",
+                "listening"
+              ],
+              "type": "string",
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamPracticeTypes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exam-practice/exams/{exam_id}/types/{type_id}/practice": {
+      "post": {
+        "tags": [
+          "Exam practice"
+        ],
+        "summary": "Start Exam Type",
+        "operationId": "start_exam_type_api_v1_exam_practice_exams__exam_id__types__type_id__practice_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exam_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exam Id"
+            }
+          },
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Type Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -983,6 +1167,165 @@
           "month"
         ],
         "title": "ExamOut"
+      },
+      "ExamPracticeList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExamProgressOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ExamPracticeList"
+      },
+      "ExamPracticeTypes": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExamTypeProgressOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ExamPracticeTypes"
+      },
+      "ExamProgressOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "answered": {
+            "type": "integer",
+            "title": "Answered"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "level",
+          "year",
+          "month",
+          "total",
+          "answered",
+          "correct",
+          "status"
+        ],
+        "title": "ExamProgressOut"
+      },
+      "ExamTypeProgressOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name_zh": {
+            "type": "string",
+            "title": "Name Zh"
+          },
+          "name_ja": {
+            "type": "string",
+            "title": "Name Ja"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "answered": {
+            "type": "integer",
+            "title": "Answered"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "practice_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Practice Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name_zh",
+          "name_ja",
+          "category",
+          "total",
+          "answered",
+          "correct",
+          "status",
+          "practice_id"
+        ],
+        "title": "ExamTypeProgressOut"
       },
       "ExamsOut": {
         "properties": {

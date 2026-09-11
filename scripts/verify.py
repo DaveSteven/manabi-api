@@ -37,6 +37,7 @@ def verify(base_url, output, provision_internal=False):
     guest_id = auth['user']['id']
     checked = []
     media_checked = False
+    exam_checked = 0
     try:
         with SessionLocal() as db:
             guest = db.get(User, guest_id)
@@ -75,7 +76,29 @@ def verify(base_url, output, provision_internal=False):
                     resumed=request('/api/v1/practices/'+practice['id'])
                     assert resumed['answered']==1
                     checked.append(dict(level=level['level'],type_id=qt['id'],available=qt['question_count'],sample_size=practice['total']))
-        result=dict(status='passed',types_checked=len(checked),media_range_checked=media_checked,checks=checked)
+            for level in levels:
+                for category in ('vocabulary', 'grammar', 'reading', 'listening'):
+                    catalog = f'/api/v1/exam-practice/exams?level={level["level"]}&category={category}'
+                    exams = request(catalog)['items']
+                    if not exams:
+                        continue
+                    exam = exams[0]
+                    assert exam['answered'] == 0
+                    path = f'/api/v1/exam-practice/exams/{exam["id"]}/types'
+                    qt = request(path+'?category='+category)['items'][0]
+                    practice = request(path+'/'+qt['id']+'/practice', {})
+                    assert practice['mode'] == 'exam' and practice['total'] == qt['total']
+                    assert {i['question']['source']['exam_id'] for i in practice['items']} == {exam['id']}
+                    item = practice['items'][0]
+                    request(f'/api/v1/practices/{practice["id"]}/items/{item["id"]}/answer',
+                            dict(option_id=item['question']['options'][0]['id'], elapsed_ms=100))
+                    resumed = request(path+'/'+qt['id']+'/practice', {})
+                    assert resumed['id'] == practice['id'] and resumed['answered'] == 1
+                    updated = next(t for t in request(path+'?category='+category)['items'] if t['id'] == qt['id'])
+                    assert updated['answered'] == 1
+                    assert next(e for e in request(catalog)['items'] if e['id'] == exam['id'])['answered'] == 1
+                    exam_checked += 1
+        result=dict(status='passed',types_checked=len(checked),exam_categories_checked=exam_checked,media_range_checked=media_checked,checks=checked)
         Path(output).write_text(json.dumps(result,ensure_ascii=False,indent=2))
         print(json.dumps({k:v for k,v in result.items() if k!='checks'},ensure_ascii=False))
     finally:

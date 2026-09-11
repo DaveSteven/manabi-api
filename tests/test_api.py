@@ -159,3 +159,56 @@ def test_intensive_listening_is_owned_and_does_not_submit(client, account):
     assert client.get(path, headers={'Authorization':'Bearer '+other['access_token']}).status_code == 404
     ordinary, _ = create(client, account)
     assert client.get(f"/api/v1/practices/{ordinary['id']}/items/{ordinary['items'][0]['id']}/listening", headers=account).status_code == 404
+
+
+def test_exam_practice_filters_resume_completion_and_isolation(client, account):
+    catalog = '/api/v1/exam-practice/exams?level=N2&category=vocabulary'
+    assert client.get(catalog).status_code == 401
+    exams = client.get(catalog, headers=account).json()['items']
+    assert len(exams) == 1 and exams[0]['status'] == 'not_started'
+    eid = exams[0]['id']
+    types_path = f'/api/v1/exam-practice/exams/{eid}/types?category=vocabulary'
+    types = client.get(types_path, headers=account).json()['items']
+    assert [t['id'] for t in types] == ['kanji_reading']
+    path = f'/api/v1/exam-practice/exams/{eid}/types/kanji_reading/practice'
+    practice = client.post(path, headers=account).json()
+    assert practice['mode'] == 'exam' and practice['total'] == 2
+    assert {i['question']['source']['exam_id'] for i in practice['items']} == {eid}
+    positions = [i['question']['source']['position'] for i in practice['items']]
+    assert positions == sorted(positions)
+    assert client.post(path, headers=account).json()['id'] == practice['id']
+    for n, item in enumerate(practice['items'], 1):
+        assert submit(client, account, practice, item, item['question']['options'][0]['id']).status_code == 200
+        row = client.get(types_path, headers=account).json()['items'][0]
+        assert row['answered'] == n and row['correct'] == n
+        assert row['status'] == ('completed' if n == 2 else 'active')
+    assert client.post(path, headers=account).json()['status'] == 'completed'
+    assert client.get(catalog, headers=account).json()['items'][0]['status'] == 'completed'
+    other = client.post('/api/v1/auth/register', json={'username':'exam_other','password':'valid-password'}).json()
+    other_headers = {'Authorization':'Bearer '+other['access_token']}
+    assert client.get(catalog, headers=other_headers).json()['items'][0]['answered'] == 0
+    assert client.get('/api/v1/practices/'+practice['id'], headers=other_headers).status_code == 404
+    assert client.post(f'/api/v1/exam-practice/exams/{eid}/types/not-a-type/practice', headers=account).status_code == 404
+    assert client.get('/api/v1/exam-practice/exams?level=N2&category=invalid', headers=account).status_code == 422
+
+
+def test_exam_reading_keeps_whole_group_and_random_does_not_count(client, account):
+    normal, _ = create(client, account)
+    item = normal['items'][0]
+    submit(client, account, normal, item, item['question']['options'][0]['id'])
+    catalog = '/api/v1/exam-practice/exams?level=N2&category=vocabulary'
+    assert client.get(catalog, headers=account).json()['items'][0]['answered'] == 0
+    eid = client.get('/api/v1/exam-practice/exams?level=N2&category=reading', headers=account).json()['items'][0]['id']
+    result = client.post(f'/api/v1/exam-practice/exams/{eid}/types/short_reading/practice', headers=account).json()
+    assert result['total'] == 2
+    assert len({i['question']['group_id'] for i in result['items']}) == 1
+
+
+@pytest.mark.skipif(not os.getenv('TEST_POSTGRES_URL'), reason='PostgreSQL locking integration test')
+def test_concurrent_exam_start_reuses_progress(client, account):
+    eid = client.get('/api/v1/exam-practice/exams?level=N2&category=listening', headers=account).json()['items'][0]['id']
+    path = f'/api/v1/exam-practice/exams/{eid}/types/listening_task/practice'
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda _: client.post(path, headers=account), range(2)))
+    assert all(r.status_code == 200 for r in responses)
+    assert len({r.json()['id'] for r in responses}) == 1

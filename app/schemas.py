@@ -202,3 +202,33 @@ class StatsOut(BaseModel):
 class IntensiveListeningOut(BaseModel):
     audio_url: str
     segments: list[SubtitleOut]
+
+
+Category = Literal['vocabulary', 'grammar', 'reading', 'listening']
+
+
+class ExamProgressOut(ExamOut):
+    total: int
+    answered: int
+    correct: int
+    status: str
+
+
+class ExamPracticeList(BaseModel):
+    items: list[ExamProgressOut]
+
+
+class ExamTypeProgressOut(BaseModel):
+    id: str
+    name_zh: str
+    name_ja: str
+    category: str
+    total: int
+    answered: int
+    correct: int
+    status: str
+    practice_id: str | None
+
+
+class ExamPracticeTypes(BaseModel):
+    items: list[ExamTypeProgressOut]

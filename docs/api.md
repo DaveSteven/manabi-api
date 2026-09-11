@@ -95,3 +95,13 @@ request_key 使用 UUID 等唯一值，网络重试复用原值。同用户同 k
 ## 精听
 
 `GET /practices/{practice_id}/items/{item_id}/listening`：需登录且练习属于当前用户，返回 `audio_url` 和 `segments`（`start_ms`、`end_ms`、`text`）。这是用户主动进入精听时获取的原文，不需要先提交答案，也不会改变答题状态；不返回正确选项或解析。无音频返回 404，无有效时间标记返回空数组。旧练习使用自己的内容快照。
+
+## 按试卷练习
+
+以下接口均需登录；路径前缀为 `/api/v1`。
+
+- `GET /exam-practice/exams?level=N2&category=listening`：按年月倒序列出该专项的可练试卷，以及当前用户的 total、answered、correct、status。category 可选 vocabulary、grammar、reading、listening。
+- `GET /exam-practice/exams/{exam_id}/types?category=listening`：按题型顺序返回题型名称、题数、已答/答对数、状态和 practice_id。状态为 not_started、active 或 completed（明确放弃的历史会话可能为 abandoned）。
+- `POST /exam-practice/exams/{exam_id}/types/{type_id}/practice`：首次进入创建 mode=exam 的练习，包含该卷该题型全部可练题，按原卷顺序排列；重复进入返回同一个练习并恢复 next_item_id，已完成则可回顾。无需请求体或客户端 request_key。
+
+提交答案、查看解析和精听复用已有练习接口。每个用户的试卷进度独立保存；随机专项练习不改变此模块的进度。总学习统计仍计入所有模式的作答。进度以已提交答案为准，退出或重启后保留。创建后使用内容快照，不随题库更新改变已开始的题目。

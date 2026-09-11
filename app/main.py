@@ -298,3 +298,7 @@ def stats(user=Depends(current_user), db=Depends(get_db)):
         .where(Practice.user_id == user.id, PracticeItem.correct.is_(True)).group_by(Practice.level, Practice.type_id))}
     return {'items': [dict(level=level, type_id=qt, answered=count, correct=correct_counts.get((level, qt), 0),
         accuracy=correct_counts.get((level, qt), 0) / count, elapsed_ms=elapsed or 0) for level, qt, count, elapsed in rows]}
+
+
+from .exam_practice import router as exam_practice_router
+app.include_router(exam_practice_router)
