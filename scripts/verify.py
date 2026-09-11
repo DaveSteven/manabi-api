@@ -58,6 +58,11 @@ def verify(base_url, output, provision_internal=False):
                         expected=set(db.scalars(select(Occurrence.id).where(Occurrence.group_key==occurrence.group_key,Occurrence.status=='ready')))
                         assert expected <= selected
                         audio=item['question']['material']['audio_url']
+                        if audio:
+                            listening = request(f'/api/v1/practices/{practice["id"]}/items/{item["id"]}/listening')
+                            assert listening['audio_url'] == audio
+                            assert all(s['end_ms'] > s['start_ms'] >= 0 for s in listening['segments'])
+                            assert 'correct_option_id' not in listening
                         if audio and not media_checked:
                             with urlopen(Request(base_url+audio,headers={'Range':'bytes=0-15'}),timeout=30) as response:
                                 assert response.status==206 and len(response.read())==16

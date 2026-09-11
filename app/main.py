@@ -17,7 +17,7 @@ from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
 from .schemas import AnswerIn, Credentials, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
-from .schemas import ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
+from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
 app.add_middleware(CORSMiddleware,
@@ -204,6 +204,20 @@ def list_practices(status: str | None = Query(None, pattern='^(active|completed|
 @app.get('/api/v1/practices/{practice_id}', response_model=PracticeOut, tags=['Practice'])
 def get_practice(practice_id: str, user=Depends(current_user), db=Depends(get_db)):
     return practice_out(db, owned_practice(db, user, practice_id))
+
+
+@app.get('/api/v1/practices/{practice_id}/items/{item_id}/listening', response_model=IntensiveListeningOut, tags=['Practice'])
+def intensive_listening(practice_id: str, item_id: str, user=Depends(current_user), db=Depends(get_db)):
+    practice = owned_practice(db, user, practice_id)
+    item = db.scalar(select(PracticeItem).where(PracticeItem.id == item_id, PracticeItem.practice_id == practice.id))
+    if item is None:
+        raise HTTPException(404, 'Practice item not found')
+    audio = item.snapshot['public']['material'].get('audio_url')
+    if not audio:
+        raise HTTPException(404, 'Listening audio not available')
+    segments = [s for s in item.snapshot['private'].get('subtitles', [])
+                if s['start_ms'] >= 0 and s['end_ms'] > s['start_ms'] and s['text'].strip()]
+    return dict(audio_url=audio, segments=sorted(segments, key=lambda s: s['start_ms']))
 
 
 @app.post('/api/v1/practices/{practice_id}/items/{item_id}/answer', response_model=ItemOut, tags=['Practice'])

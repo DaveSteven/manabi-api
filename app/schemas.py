@@ -197,3 +197,8 @@ class StatsItem(BaseModel):
 
 class StatsOut(BaseModel):
     items: list[StatsItem]
+
+
+class IntensiveListeningOut(BaseModel):
+    audio_url: str
+    segments: list[SubtitleOut]

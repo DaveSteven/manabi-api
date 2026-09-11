@@ -587,6 +587,62 @@
         }
       }
     },
+    "/api/v1/practices/{practice_id}/items/{item_id}/listening": {
+      "get": {
+        "tags": [
+          "Practice"
+        ],
+        "summary": "Intensive Listening",
+        "operationId": "intensive_listening_api_v1_practices__practice_id__items__item_id__listening_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "practice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Practice Id"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntensiveListeningOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/practices/{practice_id}/items/{item_id}/answer": {
       "post": {
         "tags": [
@@ -1025,6 +1081,27 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IntensiveListeningOut": {
+        "properties": {
+          "audio_url": {
+            "type": "string",
+            "title": "Audio Url"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleOut"
+            },
+            "type": "array",
+            "title": "Segments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audio_url",
+          "segments"
+        ],
+        "title": "IntensiveListeningOut"
       },
       "ItemOut": {
         "properties": {

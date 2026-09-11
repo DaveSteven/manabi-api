@@ -143,3 +143,19 @@ def test_registration_can_be_disabled(client, monkeypatch):
     assert client.post('/api/v1/auth/register', json={
         'username':'blocked_user', 'password':'a-valid-password'
     }).status_code == 403
+
+
+def test_intensive_listening_is_owned_and_does_not_submit(client, account):
+    practice, _ = create(client, account, 'listening_task')
+    item = practice['items'][0]
+    path = f"/api/v1/practices/{practice['id']}/items/{item['id']}/listening"
+    assert client.get(path).status_code == 401
+    response = client.get(path, headers=account)
+    assert response.status_code == 200
+    assert response.json()['segments'][0]['end_ms'] == 1500
+    assert 'correct_option_id' not in response.text
+    assert client.get('/api/v1/practices/'+practice['id'], headers=account).json()['answered'] == 0
+    other = client.post('/api/v1/auth/register', json={'username':'listening_other','password':'valid-password'}).json()
+    assert client.get(path, headers={'Authorization':'Bearer '+other['access_token']}).status_code == 404
+    ordinary, _ = create(client, account)
+    assert client.get(f"/api/v1/practices/{ordinary['id']}/items/{ordinary['items'][0]['id']}/listening", headers=account).status_code == 404

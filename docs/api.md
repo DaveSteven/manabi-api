@@ -91,3 +91,7 @@ request_key 使用 UUID 等唯一值，网络重试复用原值。同用户同 k
 时间为带 Z 的 UTC ISO 8601 字符串。耗时、字幕以毫秒计；item 和 option 的 position 从 0 开始，source position 从 1 开始。
 
 错误格式为 `{"detail": ...}`：401 身份失效；404 资源不存在、不可访问或无可练题；409 请求冲突或状态不允许；422 参数无效；429 请求过多，遵守 Retry-After。不要依赖英文错误文本作逻辑判断。
+
+## 精听
+
+`GET /practices/{practice_id}/items/{item_id}/listening`：需登录且练习属于当前用户，返回 `audio_url` 和 `segments`（`start_ms`、`end_ms`、`text`）。这是用户主动进入精听时获取的原文，不需要先提交答案，也不会改变答题状态；不返回正确选项或解析。无音频返回 404，无有效时间标记返回空数组。旧练习使用自己的内容快照。
