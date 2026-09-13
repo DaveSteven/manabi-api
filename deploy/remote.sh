@@ -59,6 +59,8 @@ if [[ "$SEED" == 1 ]]; then
   mv "$STAGE/seed.dump" "backups/initial-$STAMP.dump"
 fi
 docker compose run --rm --no-deps api python -m alembic upgrade head
+# Prepare resource versions before exposing the new API. The current API stays online.
+docker compose run --rm --no-deps api python -m scripts.hash_assets
 docker compose up -d --wait --wait-timeout 120 api
 curl --fail --max-time 15 http://127.0.0.1:8001/api/v1/health
 bash "$STAGE/deploy/tls.sh" "$DOMAIN" "$STAGE"

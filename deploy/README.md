@@ -53,3 +53,8 @@ App 的“连接设置”填写 `https://biblenotes.cc`，不包含 `/api/v1`。
 不要直接把旧快照恢复到正在使用的数据库。需要回退时先停止 API、另做当前数据库备份，再将选定快照恢复到新建的空数据库并验证后切换。代码和数据库迁移必须配套；脚本不会自动执行可能丢失新记录的数据库回滚。
 
 配置文件：`compose.yml`、`nginx.conf`、`nginx-http.conf`、`nginx-proxy.conf`；`@DOMAIN@` 在部署时替换。数据库随机密码只在服务器 `.env` 中生成，更新时保留。
+
+媒体缓存版本：部署脚本在数据库迁移后、API 重启前执行 `scripts.hash_assets`，为所有资源计算内容版本。
+哈希失败会停止部署，旧 API 容器继续运行。部署后可在 API 容器运行
+`python -m scripts.verify_resources --base-url https://biblenotes.cc`，验证所有已发布试卷清单、
+音频/图片内容哈希、Range 播放请求和版本失效响应。验证使用临时内部账号并在完成后清理，不写入正式账号练习记录。

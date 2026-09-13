@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "assets_hashed": 2014,
+  "published_manifests_checked": 61,
+  "levels_checked": [
+    "N2",
+    "N3"
+  ],
+  "media_sha256_checked": [
+    "audio",
+    "image"
+  ],
+  "range_checked": true,
+  "stale_version_rejected": true,
+  "authentication_checked": true
+}

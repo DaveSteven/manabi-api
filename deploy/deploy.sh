@@ -43,7 +43,7 @@ echo 'Deployment:'
 if [[ -f /opt/manabi/compose.yml ]]; then
   cd /opt/manabi
   docker compose ps
-  docker compose exec -T db psql -U manabi -d manabi -Atc "SELECT count(*) AS public_tables FROM information_schema.tables WHERE table_schema='public';"
+  docker compose exec -T db psql -U manabi -d manabi -Atc "SELECT count(*) AS public_tables FROM information_schema.tables WHERE table_schema='public';" </dev/null
 fi
 if [[ -d /opt/manabi/assets ]]; then du -sh /opt/manabi/assets; fi
 curl --max-time 10 -fsS "https://$1/api/v1/health" || echo 'HTTPS is not ready.'
