@@ -162,10 +162,12 @@ def exams(level: Level, limit: int = Query(50, ge=1, le=100), offset: int = Quer
 
 
 @app.get('/api/v1/assets/{asset_id}', tags=['Media'])
-def get_asset(asset_id: str, db=Depends(get_db)):
+def get_asset(asset_id: str, v: str | None = None, db=Depends(get_db)):
     asset = db.get(Asset, asset_id)
     if asset is None:
         raise HTTPException(404, 'Asset not found')
+    if v is not None and v != asset.content_hash:
+        raise HTTPException(409, 'Resource version changed; refresh the resource list')
     path = (ASSETS_ROOT / asset.path).resolve()
     if not path.is_relative_to(ASSETS_ROOT) or not path.is_file():
         raise HTTPException(404, 'Asset not available')

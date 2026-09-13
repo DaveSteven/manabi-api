@@ -3,6 +3,7 @@
 Run from manabi_api: python -m scripts.import_jlpt --report data/import-report.json
 """
 import argparse
+from hashlib import file_digest
 from collections import Counter, defaultdict
 import json
 import mimetypes
@@ -53,7 +54,11 @@ def run_import(db, data_dir, report_path, legacy_path=None):
             return None
         relative = path.relative_to(assets_root).as_posix()
         aid = stable_id('asset', relative)
-        tables[Asset][aid] = dict(id=aid, kind=kind, path=relative,
+        if aid in tables[Asset]:
+            return aid
+        with path.open('rb') as stream:
+            content_hash = file_digest(stream, 'sha256').hexdigest()
+        tables[Asset][aid] = dict(content_hash=content_hash, id=aid, kind=kind, path=relative,
             mime_type=mimetypes.guess_type(path)[0] or ('audio/mpeg' if kind == 'audio' else 'application/octet-stream'),
             byte_size=path.stat().st_size)
         return aid

@@ -238,3 +238,19 @@ class ExamTypeProgressOut(BaseModel):
 
 class ExamPracticeTypes(BaseModel):
     items: list[ExamTypeProgressOut]
+
+
+class ResourceOut(BaseModel):
+    id: str
+    kind: Literal['audio', 'image']
+    url: str
+    mime_type: str
+    byte_size: int
+    sha256: str
+
+
+class ExamResourcesOut(BaseModel):
+    exam_id: str
+    items: list[ResourceOut]
+    resource_count: int
+    total_bytes: int

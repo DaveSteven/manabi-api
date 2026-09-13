@@ -18,6 +18,7 @@ if __name__ == '__main__':
     if action == 'test':
         env['TEST_POSTGRES_URL'] = env['DATABASE_URL']
     commands = {
+        'hash-assets': [sys.executable, '-m', 'scripts.hash_assets'],
         'migrate': [sys.executable, '-m', 'alembic', 'upgrade', 'head'],
         'import': [sys.executable, '-m', 'scripts.import_jlpt'],
         'serve': [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8001'],

@@ -7,9 +7,9 @@ from sqlalchemy.orm import defer
 
 from .auth import current_user, lock_user
 from .database import get_db
-from .models import Exam, Occurrence, Practice, PracticeItem, QuestionType
+from .models import Asset, Material, Exam, Occurrence, Practice, PracticeItem, QuestionType
 from .practice import make_snapshot, practice_out
-from .schemas import Category, ExamPracticeList, ExamPracticeTypes, Level, PracticeOut
+from .schemas import ExamResourcesOut, Category, ExamPracticeList, ExamPracticeTypes, Level, PracticeOut
 
 router = APIRouter(prefix='/api/v1/exam-practice', tags=['Exam practice'])
 
@@ -100,3 +100,40 @@ def start_exam_type(exam_id: str, type_id: str, user=Depends(current_user), db=D
             question_id=occurrence.question_id, position=position, snapshot=make_snapshot(db, occurrence)))
     db.commit()
     return practice_out(db, practice)
+
+
+@router.get('/exams/{exam_id}/resources', response_model=ExamResourcesOut,
+            summary='List deduplicated audio and image resources for a paper')
+def list_resources(exam_id: str, category: Category | None = None, type_id: str | None = None,
+                   user=Depends(current_user), db=Depends(get_db)):
+    """Omit filters for the whole paper; category and type_id intersect when both supplied.
+
+    Only published papers and ready questions are included. Does not create practice or
+    modify progress. total_bytes counts unique resource IDs, before device cache deductions.
+    sha256 is the content version and download integrity checksum; URLs are relative.
+    """
+    exam = db.get(Exam, exam_id)
+    if exam is None or not exam.published:
+        raise HTTPException(404, 'Exam not available')
+    if type_id is not None:
+        qt = db.get(QuestionType, type_id)
+        if qt is None or (category is not None and qt.category != category):
+            raise HTTPException(422, 'Unknown question type or category mismatch')
+    materials = (select(Material.audio_id, Material.image_id)
+        .join(Occurrence, Occurrence.material_id == Material.id)
+        .join(QuestionType, QuestionType.id == Occurrence.type_id)
+        .where(Occurrence.exam_id == exam_id, Occurrence.status == 'ready'))
+    if category is not None:
+        materials = materials.where(QuestionType.category == category)
+    if type_id is not None:
+        materials = materials.where(Occurrence.type_id == type_id)
+    refs = materials.subquery()
+    assets = db.scalars(select(Asset).where(
+        Asset.id.in_(select(refs.c.audio_id).union(select(refs.c.image_id))))
+        .order_by(Asset.kind, Asset.id)).all()
+    if any(not asset.content_hash for asset in assets):
+        raise HTTPException(503, 'Resource metadata is not ready')
+    items = [dict(id=a.id, kind=a.kind, url=f'/api/v1/assets/{a.id}?v={a.content_hash}',
+                  mime_type=a.mime_type, byte_size=a.byte_size, sha256=a.content_hash) for a in assets]
+    return dict(exam_id=exam_id, items=items, resource_count=len(items),
+                total_bytes=sum(a.byte_size for a in assets))

@@ -61,6 +61,7 @@ class Asset(Base):
     path: Mapped[str] = mapped_column(Text, unique=True)
     mime_type: Mapped[str] = mapped_column(String(64))
     byte_size: Mapped[int] = mapped_column(Integer)
+    content_hash: Mapped[str | None] = mapped_column(String(64))
 
 
 class Material(Base):
