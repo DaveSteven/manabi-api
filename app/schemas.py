@@ -1,7 +1,7 @@
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
-Level = Literal['N2', 'N3']
+Level = Literal['N1', 'N2', 'N3', 'N4', 'N5']
 
 
 class Credentials(BaseModel):

@@ -64,3 +64,38 @@ def test_reordering_does_not_retarget_occurrences(database,source,tmp_path):
         db.expire_all()
         after={o.source['question_id']:o.id for o in db.scalars(select(Occurrence).where(Occurrence.level=='N2',Occurrence.status=='ready'))}
         assert before==after
+
+
+@pytest.mark.parametrize('level', ['N1', 'N4', 'N5'])
+def test_new_level_import_is_scoped_and_practice_available(level,database,source,tmp_path,client,account):
+    import shutil
+    shutil.copytree(source/'normalized/N2', source/'normalized'/level)
+    with database() as db:
+        before={o.id:(o.status,o.import_id) for o in db.scalars(select(Occurrence))}
+        summary=run_import(db,source,tmp_path/'new-report.json',selected_levels=[level])
+        assert summary['levels']==[level]
+        assert summary['occurrences']==5
+        db.expire_all()
+        assert {o.id:(o.status,o.import_id) for o in db.scalars(select(Occurrence).where(Occurrence.level.in_(['N2','N3'])))}==before
+        run_import(db,source,tmp_path/'repeat-report.json',selected_levels=[level])
+        assert db.scalar(select(func.count()).select_from(Occurrence))==15
+    assert client.get('/api/v1/catalog/types',params={'level':level}).status_code==200
+    assert client.patch('/api/v1/me',headers=account,json={'level':level}).status_code==200
+    response=client.post('/api/v1/practices',headers=account,json=dict(level=level,type_id='kanji_reading',count=2,request_key=f'new-level-{level}'))
+    assert response.status_code==201,response.text
+    assert response.json()['total']==2
+
+
+def test_missing_selected_level_cannot_retire_data(database,source,tmp_path):
+    with database() as db:
+        with pytest.raises(ValueError,match='Missing source file'):
+            run_import(db,source,tmp_path/'report.json',selected_levels=['N5'])
+        assert db.scalar(select(func.count()).select_from(Occurrence).where(Occurrence.status=='ready'))==10
+
+
+def test_n1_aliases_keep_other_levels_unchanged():
+    from app.taxonomy import type_id
+    assert type_id('N1',13)==type_id('N1',14)=='context_vocabulary'
+    assert type_id('N1',44)==type_id('N1',45)=='listening_response'
+    assert type_id('N2',13)=='word_formation'
+    assert type_id('N4',44)==type_id('N5',44)=='listening_expression'

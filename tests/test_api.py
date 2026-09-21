@@ -26,7 +26,7 @@ def test_catalog_and_auth_required(client):
     types = client.get('/api/v1/catalog/types?level=N2').json()['items']
     assert {t['id'] for t in types} == {'kanji_reading','short_reading','listening_task'}
     assert client.get('/api/v1/practices').status_code==401
-    assert client.get('/api/v1/catalog/types?level=N1').status_code==422
+    assert client.get('/api/v1/catalog/types?level=N0').status_code==422
 
 
 def test_no_feedback_before_answer_and_resume(client, account):

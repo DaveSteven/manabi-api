@@ -27,7 +27,10 @@ CODES = dict(zip([11,12,13,14,15,16,21,22,23,31,32,33,34,35,36,41,42,43,44,45,46
 
 
 def type_id(level, code):
-    # N3's historical source codes 13 and 14 both describe contextual vocabulary.
-    if level == 'N3' and code in {13, 14}:
+    # N1/N3 historical source codes 13 and 14 both describe contextual vocabulary.
+    if level in {'N1', 'N3'} and code in {13, 14}:
         return 'context_vocabulary'
+    # N1 historical code 44 denotes response listening, matching layer code 45.
+    if level == 'N1' and code == 44:
+        return 'listening_response'
     return CODES.get(code)

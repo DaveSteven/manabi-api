@@ -29,8 +29,17 @@ def upsert(db, model, records):
                    set_={c.name: getattr(stmt.excluded, c.name) for c in model.__table__.columns if c.name != 'id'}))
 
 
-def run_import(db, data_dir, report_path, legacy_path=None):
+def run_import(db, data_dir, report_path, legacy_path=None, selected_levels=None):
     data_dir = Path(data_dir).resolve()
+    supported_levels = {'N1', 'N2', 'N3', 'N4', 'N5'}
+    requested_levels = set(selected_levels) if selected_levels is not None else supported_levels
+    if not requested_levels or not requested_levels <= supported_levels:
+        raise ValueError('Select JLPT levels N1 through N5')
+    if selected_levels is not None:
+        for level in requested_levels:
+            for name in ('exams_with_assets.json', 'questions_with_assets.json'):
+                if not (data_dir / 'normalized' / level / name).is_file():
+                    raise ValueError(f'Missing source file: {level}/{name}')
     assets_root = (data_dir / 'assets').resolve()
     run_id = uid()
     issues = []
@@ -79,7 +88,7 @@ def run_import(db, data_dir, report_path, legacy_path=None):
     source_count = 0
     levels = []
     for level_dir in sorted((data_dir / 'normalized').iterdir()):
-        if level_dir.name not in {'N2', 'N3'}:
+        if level_dir.name not in requested_levels:
             continue
         level = level_dir.name
         levels.append(level)
@@ -222,6 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--report', type=Path, default=ROOT / 'data/import-report.json')
     default_legacy = ROOT / 'data/legacy-jlpt-snapshot.json'
     parser.add_argument('--legacy-snapshot', type=Path, default=default_legacy if default_legacy.exists() else None)
+    parser.add_argument('--levels', nargs='+', choices=['N1', 'N2', 'N3', 'N4', 'N5'])
     args = parser.parse_args()
     with SessionLocal() as session:
-        print(json.dumps(run_import(session, args.data_dir, args.report, args.legacy_snapshot), ensure_ascii=False, indent=2))
+        print(json.dumps(run_import(session, args.data_dir, args.report, args.legacy_snapshot, args.levels), ensure_ascii=False, indent=2))

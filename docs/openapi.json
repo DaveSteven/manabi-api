@@ -324,8 +324,11 @@
             "required": true,
             "schema": {
               "enum": [
+                "N1",
                 "N2",
-                "N3"
+                "N3",
+                "N4",
+                "N5"
               ],
               "type": "string",
               "title": "Level"
@@ -370,8 +373,11 @@
             "required": true,
             "schema": {
               "enum": [
+                "N1",
                 "N2",
-                "N3"
+                "N3",
+                "N4",
+                "N5"
               ],
               "type": "string",
               "title": "Level"
@@ -824,8 +830,11 @@
               "anyOf": [
                 {
                   "enum": [
+                    "N1",
                     "N2",
-                    "N3"
+                    "N3",
+                    "N4",
+                    "N5"
                   ],
                   "type": "string"
                 },
@@ -955,8 +964,11 @@
             "required": true,
             "schema": {
               "enum": [
+                "N1",
                 "N2",
-                "N3"
+                "N3",
+                "N4",
+                "N5"
               ],
               "type": "string",
               "title": "Level"
@@ -1511,8 +1523,11 @@
           "level": {
             "type": "string",
             "enum": [
+              "N1",
               "N2",
-              "N3"
+              "N3",
+              "N4",
+              "N5"
             ],
             "title": "Level",
             "default": "N3"
@@ -1666,8 +1681,11 @@
           "level": {
             "type": "string",
             "enum": [
+              "N1",
               "N2",
-              "N3"
+              "N3",
+              "N4",
+              "N5"
             ],
             "title": "Level"
           },
@@ -1927,8 +1945,11 @@
           "level": {
             "type": "string",
             "enum": [
+              "N1",
               "N2",
-              "N3"
+              "N3",
+              "N4",
+              "N5"
             ],
             "title": "Level"
           }

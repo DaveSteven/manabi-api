@@ -1,6 +1,6 @@
 # Manabi API
 
-面向 iOS App 的 JLPT 专项练习服务。FastAPI + PostgreSQL，独立于旧服务运行。当前题库覆盖 N2、N3。
+面向 iOS App 的 JLPT 专项练习服务。FastAPI + PostgreSQL，独立于旧服务运行。当前支持 N1 至 N5 题库。
 
 ## 已实现
 
@@ -51,6 +51,12 @@ docker compose up -d --build api
 
 ```sh
 .venv/bin/python -m scripts.local import
+```
+
+仅更新指定等级（其他等级保持现状）：
+
+```sh
+.venv/bin/python -m scripts.local import --levels N5 N4 N1 --report data/import-report-n145.json
 ```
 
 每次导入在单个事务中写入，并生成 `data/import-report.json`。出现记录 ID 稳定，内容变更生成新修订，已有练习使用快照。源数据删除的记录标为 retired，不删除历史引用。

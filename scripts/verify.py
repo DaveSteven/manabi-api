@@ -14,13 +14,13 @@ from app.models import Occurrence, Option, Practice, PracticeItem, Token, User, 
 def verify(base_url, output, provision_internal=False):
     token = None
 
-    def request(path, data=None, extra_headers=None):
+    def request(path, data=None, extra_headers=None, method=None):
         headers = {'Content-Type': 'application/json'}
         if token:
             headers['Authorization'] = 'Bearer ' + token
         headers.update(extra_headers or {})
         with urlopen(Request(base_url+path, data=json.dumps(data).encode() if data is not None else None,
-                             headers=headers), timeout=30) as response:
+                             headers=headers, method=method), timeout=30) as response:
             return json.load(response)
 
     assert request('/api/v1/health')['status'] == 'ok'
@@ -44,6 +44,9 @@ def verify(base_url, output, provision_internal=False):
             assert guest is not None and guest.username == username
             levels = request('/api/v1/catalog/levels')['items']
             for level in levels:
+                updated = request('/api/v1/me', {'level': level['level']}, method='PATCH')
+                assert updated['level'] == level['level']
+                assert request('/api/v1/me')['level'] == level['level']
                 assert level['question_count'] == db.scalar(select(func.count()).select_from(Occurrence).where(
                     Occurrence.level == level['level'], Occurrence.status == 'ready'))
                 for qt in request('/api/v1/catalog/types?level='+level['level'])['items']:
