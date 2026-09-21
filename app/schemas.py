@@ -51,6 +51,24 @@ class TokenOut(BaseModel):
     user: UserOut
 
 
+class AdminUserOut(BaseModel):
+    id: str
+    username: str | None
+    display_name: str | None
+    level: str
+    status: str
+    is_admin: bool
+    created_at: str | None
+    last_login_at: str | None
+
+
+class AdminUsersOut(BaseModel):
+    items: list[AdminUserOut]
+    total: int
+    limit: int
+    offset: int
+
+
 class OptionOut(BaseModel):
     id: str
     position: int

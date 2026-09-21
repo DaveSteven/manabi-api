@@ -3,12 +3,13 @@ from pathlib import Path
 import time
 from collections import defaultdict, deque
 from threading import Lock
+from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import defer
 
@@ -16,7 +17,7 @@ from .auth import bearer, current_admin, current_user, disabled_error, hash_pass
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -91,6 +92,60 @@ def create_internal_account(payload: InternalAccountCreate, admin=Depends(curren
         db.rollback()
         raise HTTPException(409, 'Username already exists')
     return profile(user)
+
+
+ADMIN_USER_SORT_FIELDS = {
+    'created_at': User.created_at,
+    'updated_at': User.updated_at,
+    'last_login_at': User.last_login_at,
+    'username': User.username,
+    'level': User.level,
+    'status': User.status,
+}
+
+
+def admin_user_out(user):
+    return dict(id=user.id, username=user.username, display_name=user.display_name, level=user.level,
+                status=user.status, is_admin=user.is_admin,
+                created_at=user.created_at.isoformat() + 'Z' if user.created_at else None,
+                last_login_at=user.last_login_at.isoformat() + 'Z' if user.last_login_at else None)
+
+
+def keyword_pattern(value):
+    # Escape LIKE wildcards so the keyword is matched literally.
+    escaped = value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    return f'%{escaped.lower()}%'
+
+
+@app.get('/api/v1/admin/users', response_model=AdminUsersOut, tags=['Admin'],
+         summary='用户列表（仅管理员）',
+         description='支持关键词、等级、状态、管理员类型筛选，分页与白名单排序。不返回密码摘要或 token。')
+def list_admin_users(keyword: str | None = Query(None, max_length=64),
+                     level: Level | None = None,
+                     status: str | None = Query(None, pattern='^(active|disabled|deleted)$'),
+                     is_admin: bool | None = None,
+                     sort: Literal['created_at', 'updated_at', 'last_login_at', 'username', 'level', 'status'] = 'created_at',
+                     order: Literal['asc', 'desc'] = 'desc',
+                     limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+                     admin=Depends(current_admin), db=Depends(get_db)):
+    filters = []
+    term = keyword.strip() if keyword else ''
+    if term:
+        pattern = keyword_pattern(term)
+        filters.append(or_(func.lower(User.username).like(pattern, escape='\\'),
+                           func.lower(User.display_name).like(pattern, escape='\\')))
+    if level:
+        filters.append(User.level == level)
+    if status:
+        filters.append(User.status == status)
+    if is_admin is not None:
+        filters.append(User.is_admin.is_(is_admin))
+    column = ADMIN_USER_SORT_FIELDS[sort]
+    ordering = column.asc() if order == 'asc' else column.desc()
+    rows = db.scalars(select(User).where(*filters).order_by(ordering, User.id).limit(limit).offset(offset))
+    return {'items': [admin_user_out(user) for user in rows],
+            'total': db.scalar(select(func.count()).select_from(User).where(*filters)),
+            'limit': limit, 'offset': offset}
 
 
 @app.post('/api/v1/auth/login', response_model=TokenOut, tags=['Account'])
