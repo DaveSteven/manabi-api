@@ -11,6 +11,13 @@ from .database import get_db
 from .models import Token, User, now
 
 bearer = HTTPBearer(auto_error=False)
+ACCOUNT_DISABLED_CODE = 'ACCOUNT_DISABLED'
+
+
+def disabled_error(status_code):
+    detail = {'code': ACCOUNT_DISABLED_CODE, 'message': 'Account is disabled'}
+    headers = {'WWW-Authenticate': 'Bearer'} if status_code == 401 else None
+    return HTTPException(status_code, detail, headers=headers)
 
 
 def hash_password(password, salt=None):
@@ -53,6 +60,8 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
     user = db.get(User, token.user_id)
     if user is None or user.username is None:
         raise HTTPException(401, 'Registered account required')
+    if user.status != 'active':
+        raise disabled_error(401)
     return user
 
 

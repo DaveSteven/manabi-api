@@ -12,7 +12,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import defer
 
-from .auth import bearer, current_admin, current_user, hash_password, issue_token, lock_user, profile, token_digest, verify_password
+from .auth import bearer, current_admin, current_user, disabled_error, hash_password, issue_token, lock_user, profile, token_digest, verify_password
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
@@ -98,6 +98,8 @@ def login(payload: Credentials, db=Depends(get_db)):
     user = db.scalar(select(User).where(User.username == payload.username.lower()))
     if not verify_password(payload.password, user.password_hash if user else None):
         raise HTTPException(401, 'Invalid username or password')
+    if user.status != 'active':
+        raise disabled_error(403)
     return issue_token(db, user)
 
 
