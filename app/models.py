@@ -23,6 +23,11 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     level: Mapped[str] = mapped_column(String(2), default='N3')
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    status: Mapped[str] = mapped_column(String(16), default='active', server_default='active')
+    display_name: Mapped[str | None] = mapped_column(String(64))
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=now)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class Token(Base):
