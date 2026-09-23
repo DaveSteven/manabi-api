@@ -279,6 +279,26 @@ def revoke_admin_user_tokens(user_id: str, admin=Depends(current_admin), db=Depe
     return admin_user_detail_out(user)
 
 
+@app.delete('/api/v1/admin/users/{user_id}', status_code=204, tags=['Admin'],
+            summary='删除无业务数据的用户（仅管理员）',
+            description='仅删除没有练习或错题记录的普通用户；管理员账号和存在业务数据的账号一律拒绝，应改用禁用。')
+def delete_admin_user(user_id: str, admin=Depends(current_admin), db=Depends(get_db)):
+    if user_id == admin.id:
+        raise HTTPException(409, {'code': 'CANNOT_DELETE_SELF', 'message': 'Cannot delete your own account'})
+    user = db.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    if user.is_admin:
+        raise HTTPException(409, {'code': 'CANNOT_DELETE_ADMIN', 'message': 'Administrator accounts cannot be deleted'})
+    if db.scalar(select(func.count()).select_from(Practice).where(Practice.user_id == user_id)):
+        raise HTTPException(409, {'code': 'HAS_PRACTICE_DATA', 'message': 'User has practice data; disable instead'})
+    if db.scalar(select(func.count()).select_from(WrongQuestion).where(WrongQuestion.user_id == user_id)):
+        raise HTTPException(409, {'code': 'HAS_WRONG_DATA', 'message': 'User has wrong-question data; disable instead'})
+    db.execute(delete(Token).where(Token.user_id == user_id))
+    db.delete(user)
+    db.commit()
+
+
 @app.get('/api/v1/admin/users/{user_id}/stats', response_model=AdminUserStatsOut, tags=['Admin'],
          summary='用户学习摘要（仅管理员）',
          description='按等级汇总练习次数、答题数、正确率与未解决错题数，不返回答案快照或内部字段。')
