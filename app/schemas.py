@@ -74,6 +74,11 @@ class AdminUserUpdate(BaseModel):
     updated_at: str
 
 
+class AdminUserDisable(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class AdminUsersOut(BaseModel):
     items: list[AdminUserOut]
     total: int

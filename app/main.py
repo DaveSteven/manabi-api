@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import defer
 
@@ -17,7 +17,7 @@ from .auth import bearer, current_admin, current_user, disabled_error, hash_pass
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AdminUserDetailOut, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -201,6 +201,51 @@ def update_admin_user(user_id: str, payload: AdminUserUpdate, admin=Depends(curr
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, {'code': 'USERNAME_TAKEN', 'message': 'Username already exists'})
+    return admin_user_detail_out(user)
+
+
+@app.post('/api/v1/admin/users/{user_id}/disable', response_model=AdminUserDetailOut, tags=['Admin'],
+          summary='禁用用户（仅管理员）',
+          description='禁用目标账号、写入 disabled_at 并撤销该用户全部 token。不能禁用自己，也不能禁用最后一个管理员。')
+def disable_admin_user(user_id: str, payload: AdminUserDisable | None = None, admin=Depends(current_admin), db=Depends(get_db)):
+    if user_id == admin.id:
+        raise HTTPException(409, {'code': 'CANNOT_DISABLE_SELF', 'message': 'Cannot disable your own account'})
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, 'User not found')
+    if target.is_admin:
+        active_admins = list(db.scalars(select(User).where(User.status == 'active', User.is_admin.is_(True))
+            .order_by(User.id).with_for_update()))
+        if len(active_admins) <= 1:
+            raise HTTPException(409, {'code': 'LAST_ADMIN_PROTECTED', 'message': 'Cannot disable the last active administrator'})
+    user = db.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    if user.status == 'deleted':
+        raise HTTPException(409, {'code': 'USER_DELETED', 'message': 'Deleted user cannot be disabled'})
+    if user.status != 'disabled':
+        user.status = 'disabled'
+        user.disabled_at = now()
+        user.updated_at = now()
+    db.execute(delete(Token).where(Token.user_id == user_id))
+    db.commit()
+    return admin_user_detail_out(user)
+
+
+@app.post('/api/v1/admin/users/{user_id}/enable', response_model=AdminUserDetailOut, tags=['Admin'],
+          summary='启用用户（仅管理员）',
+          description='将已禁用账号恢复为 active 并清除 disabled_at。已删除账号不可启用。')
+def enable_admin_user(user_id: str, admin=Depends(current_admin), db=Depends(get_db)):
+    user = db.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    if user.status == 'deleted':
+        raise HTTPException(409, {'code': 'USER_DELETED', 'message': 'Deleted user cannot be enabled'})
+    if user.status != 'active':
+        user.status = 'active'
+        user.disabled_at = None
+        user.updated_at = now()
+        db.commit()
     return admin_user_detail_out(user)
 
 
