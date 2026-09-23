@@ -17,7 +17,7 @@ from .auth import bearer, current_admin, current_user, disabled_error, hash_pass
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminUserOut, AdminUserStatsOut, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -147,6 +147,52 @@ def list_admin_users(keyword: str | None = Query(None, max_length=64),
     return {'items': [admin_user_out(user) for user in rows],
             'total': db.scalar(select(func.count()).select_from(User).where(*filters)),
             'limit': limit, 'offset': offset}
+
+
+ADMIN_LEVEL_ORDER = ['N1', 'N2', 'N3', 'N4', 'N5']
+
+
+def admin_visible_user_or_404(db, user_id):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    return user
+
+
+@app.get('/api/v1/admin/users/{user_id}', response_model=AdminUserOut, tags=['Admin'],
+         summary='用户详情（仅管理员）',
+         description='返回用户基础资料，不包含密码摘要或 token。')
+def admin_user_detail(user_id: str, admin=Depends(current_admin), db=Depends(get_db)):
+    return admin_user_out(admin_visible_user_or_404(db, user_id))
+
+
+@app.get('/api/v1/admin/users/{user_id}/stats', response_model=AdminUserStatsOut, tags=['Admin'],
+         summary='用户学习摘要（仅管理员）',
+         description='按等级汇总练习次数、答题数、正确率与未解决错题数，不返回答案快照或内部字段。')
+def admin_user_stats(user_id: str, admin=Depends(current_admin), db=Depends(get_db)):
+    admin_visible_user_or_404(db, user_id)
+    practice_counts = dict(db.execute(select(Practice.level, func.count(Practice.id))
+        .where(Practice.user_id == user_id).group_by(Practice.level)).all())
+    answered_counts = dict(db.execute(select(Practice.level, func.count(PracticeItem.id))
+        .join(PracticeItem, PracticeItem.practice_id == Practice.id)
+        .where(Practice.user_id == user_id, PracticeItem.answered_at.is_not(None)).group_by(Practice.level)).all())
+    correct_counts = dict(db.execute(select(Practice.level, func.count())
+        .join(PracticeItem, PracticeItem.practice_id == Practice.id)
+        .where(Practice.user_id == user_id, PracticeItem.correct.is_(True)).group_by(Practice.level)).all())
+    wrong_counts = dict(db.execute(select(Occurrence.level, func.count())
+        .join(WrongQuestion, WrongQuestion.occurrence_id == Occurrence.id)
+        .where(WrongQuestion.user_id == user_id, WrongQuestion.resolved.is_(False)).group_by(Occurrence.level)).all())
+    levels = set(practice_counts) | set(answered_counts) | set(correct_counts) | set(wrong_counts)
+    ordered = sorted(levels, key=lambda level: ADMIN_LEVEL_ORDER.index(level) if level in ADMIN_LEVEL_ORDER else len(ADMIN_LEVEL_ORDER))
+    items = [dict(level=level, practices=practice_counts.get(level, 0), answered=answered_counts.get(level, 0),
+                  correct=correct_counts.get(level, 0),
+                  accuracy=correct_counts.get(level, 0) / answered_counts[level] if answered_counts.get(level) else 0.0,
+                  wrong_questions=wrong_counts.get(level, 0)) for level in ordered]
+    answered_total = sum(answered_counts.values())
+    correct_total = sum(correct_counts.values())
+    return {'practices': sum(practice_counts.values()), 'answered': answered_total, 'correct': correct_total,
+            'accuracy': correct_total / answered_total if answered_total else 0.0,
+            'wrong_questions': sum(wrong_counts.values()), 'levels': items}
 
 
 @app.post('/api/v1/auth/login', response_model=TokenOut, tags=['Account'])

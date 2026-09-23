@@ -70,6 +70,24 @@ class AdminUsersOut(BaseModel):
     offset: int
 
 
+class AdminUserStatsLevel(BaseModel):
+    level: str
+    practices: int
+    answered: int
+    correct: int
+    accuracy: float
+    wrong_questions: int
+
+
+class AdminUserStatsOut(BaseModel):
+    practices: int
+    answered: int
+    correct: int
+    accuracy: float
+    wrong_questions: int
+    levels: list[AdminUserStatsLevel]
+
+
 class OptionOut(BaseModel):
     id: str
     position: int
