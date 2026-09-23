@@ -79,6 +79,11 @@ class AdminUserDisable(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class AdminPasswordReset(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    password: str = Field(min_length=8, max_length=128)
+
+
 class AdminUsersOut(BaseModel):
     items: list[AdminUserOut]
     total: int

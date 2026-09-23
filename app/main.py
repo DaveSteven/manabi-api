@@ -17,7 +17,7 @@ from .auth import bearer, current_admin, current_user, disabled_error, hash_pass
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminPasswordReset, AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -246,6 +246,36 @@ def enable_admin_user(user_id: str, admin=Depends(current_admin), db=Depends(get
         user.disabled_at = None
         user.updated_at = now()
         db.commit()
+    return admin_user_detail_out(user)
+
+
+@app.post('/api/v1/admin/users/{user_id}/reset-password', response_model=AdminUserDetailOut, tags=['Admin'],
+          summary='重置用户密码（仅管理员）',
+          description='设置新密码并撤销该用户全部 token。不返回密码摘要，也不回显请求中的密码。')
+def reset_admin_user_password(user_id: str, payload: AdminPasswordReset, admin=Depends(current_admin), db=Depends(get_db)):
+    user = db.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    if user.status == 'deleted':
+        raise HTTPException(409, {'code': 'USER_DELETED', 'message': 'Deleted user cannot be updated'})
+    user.password_hash = hash_password(payload.password)
+    user.updated_at = now()
+    db.execute(delete(Token).where(Token.user_id == user_id))
+    db.commit()
+    return admin_user_detail_out(user)
+
+
+@app.post('/api/v1/admin/users/{user_id}/revoke-tokens', response_model=AdminUserDetailOut, tags=['Admin'],
+          summary='撤销用户全部会话（仅管理员）',
+          description='删除该用户全部 token，不修改密码或其他资料。')
+def revoke_admin_user_tokens(user_id: str, admin=Depends(current_admin), db=Depends(get_db)):
+    user = db.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    if user.status == 'deleted':
+        raise HTTPException(409, {'code': 'USER_DELETED', 'message': 'Deleted user cannot be updated'})
+    db.execute(delete(Token).where(Token.user_id == user_id))
+    db.commit()
     return admin_user_detail_out(user)
 
 
