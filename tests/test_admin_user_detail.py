@@ -6,7 +6,7 @@ from app.models import User
 
 DETAIL_PATH = '/api/v1/admin/users/{}'
 STATS_PATH = '/api/v1/admin/users/{}/stats'
-DETAIL_FIELDS = {'id', 'username', 'display_name', 'level', 'status', 'is_admin', 'created_at', 'last_login_at'}
+DETAIL_FIELDS = {'id', 'username', 'display_name', 'level', 'status', 'is_admin', 'created_at', 'last_login_at', 'updated_at'}
 PASSWORD = 'a-valid-password'
 
 

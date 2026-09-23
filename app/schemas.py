@@ -63,6 +63,17 @@ class AdminUserOut(BaseModel):
     last_login_at: str | None
 
 
+class AdminUserDetailOut(AdminUserOut):
+    updated_at: str | None
+
+
+class AdminUserUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    username: str | None = Field(default=None, min_length=3, max_length=64, pattern=r'^[a-zA-Z0-9_.-]+$')
+    display_name: str | None = Field(default=None, max_length=64)
+    updated_at: str
+
+
 class AdminUsersOut(BaseModel):
     items: list[AdminUserOut]
     total: int

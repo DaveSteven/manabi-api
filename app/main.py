@@ -17,7 +17,7 @@ from .auth import bearer, current_admin, current_user, disabled_error, hash_pass
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AdminUserOut, AdminUserStatsOut, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminUserDetailOut, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -159,11 +159,49 @@ def admin_visible_user_or_404(db, user_id):
     return user
 
 
-@app.get('/api/v1/admin/users/{user_id}', response_model=AdminUserOut, tags=['Admin'],
+def admin_user_detail_out(user):
+    data = admin_user_out(user)
+    data['updated_at'] = user.updated_at.isoformat() + 'Z' if user.updated_at else None
+    return data
+
+
+def edit_conflict():
+    return HTTPException(409, {'code': 'EDIT_CONFLICT', 'message': 'User was modified by another administrator'})
+
+
+@app.get('/api/v1/admin/users/{user_id}', response_model=AdminUserDetailOut, tags=['Admin'],
          summary='用户详情（仅管理员）',
-         description='返回用户基础资料，不包含密码摘要或 token。')
+         description='返回用户基础资料和用于并发校验的 updated_at，不包含密码摘要或 token。')
 def admin_user_detail(user_id: str, admin=Depends(current_admin), db=Depends(get_db)):
-    return admin_user_out(admin_visible_user_or_404(db, user_id))
+    return admin_user_detail_out(admin_visible_user_or_404(db, user_id))
+
+
+@app.patch('/api/v1/admin/users/{user_id}', response_model=AdminUserDetailOut, tags=['Admin'],
+           summary='编辑用户资料（仅管理员）',
+           description='仅允许修改用户名和显示名称；通过 updated_at 乐观锁检测并发修改，冲突返回 409。不可修改等级、管理员、状态、密码或 token。')
+def update_admin_user(user_id: str, payload: AdminUserUpdate, admin=Depends(current_admin), db=Depends(get_db)):
+    user = db.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, 'User not found')
+    if not ({'username', 'display_name'} & payload.model_fields_set):
+        raise HTTPException(422, 'No updatable fields provided')
+    current_version = user.updated_at.isoformat() + 'Z' if user.updated_at else None
+    if payload.updated_at != current_version:
+        raise edit_conflict()
+    if 'username' in payload.model_fields_set:
+        if payload.username is None:
+            raise HTTPException(422, 'Username cannot be empty')
+        user.username = payload.username.lower()
+    if 'display_name' in payload.model_fields_set:
+        display_name = payload.display_name.strip() if payload.display_name else ''
+        user.display_name = display_name or None
+    user.updated_at = now()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, {'code': 'USERNAME_TAKEN', 'message': 'Username already exists'})
+    return admin_user_detail_out(user)
 
 
 @app.get('/api/v1/admin/users/{user_id}/stats', response_model=AdminUserStatsOut, tags=['Admin'],
