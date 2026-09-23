@@ -11,7 +11,8 @@ class Credentials(BaseModel):
 
 class InternalAccountCreate(Credentials):
     model_config = ConfigDict(extra='forbid')
-    level: Level = 'N3'
+    display_name: str | None = Field(default=None, max_length=64)
+    level: Level = 'N5'
 
 
 class ProfileUpdate(BaseModel):

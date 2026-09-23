@@ -83,8 +83,9 @@ def register(payload: Credentials, db=Depends(get_db)):
           summary='创建内部账号（仅管理员）',
           description='先调用 /api/v1/auth/login，然后在 Authorize 中粘贴 access_token。创建的账号为普通用户，不开放管理员授权。')
 def create_internal_account(payload: InternalAccountCreate, admin=Depends(current_admin), db=Depends(get_db)):
+    display_name = payload.display_name.strip() if payload.display_name else ''
     user = User(username=payload.username.lower(), password_hash=hash_password(payload.password),
-                level=payload.level, is_admin=False)
+                level=payload.level, is_admin=False, display_name=display_name or None)
     db.add(user)
     try:
         db.commit()
