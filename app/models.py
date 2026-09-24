@@ -56,7 +56,8 @@ class Exam(Base):
     month: Mapped[int | None] = mapped_column(Integer)
     published: Mapped[bool] = mapped_column(Boolean)
     source_metadata: Mapped[dict] = mapped_column(JSON)
-    __table_args__ = (UniqueConstraint('level', 'source_id'),)
+    __table_args__ = (UniqueConstraint('level', 'source_id'),
+                      Index('ix_exams_level_year_month', 'level', 'year', 'month'))
 
 
 class Asset(Base):
@@ -112,7 +113,8 @@ class Occurrence(Base):
     status: Mapped[str] = mapped_column(String(16))
     source: Mapped[dict] = mapped_column(JSON)
     import_id: Mapped[str] = mapped_column(String(36), index=True)
-    __table_args__ = (Index('ix_occurrences_catalog', 'level', 'type_id', 'status'),)
+    __table_args__ = (Index('ix_occurrences_catalog', 'level', 'type_id', 'status'),
+                      Index('ix_occurrences_exam_status', 'exam_id', 'status'))
 
 
 class ImportRun(Base):
@@ -130,6 +132,7 @@ class QualityIssue(Base):
     code: Mapped[str] = mapped_column(String(64))
     severity: Mapped[str] = mapped_column(String(16))
     detail: Mapped[dict] = mapped_column(JSON)
+    __table_args__ = (Index('ix_quality_issues_occurrence_import', 'occurrence_id', 'import_id'),)
 
 
 class Practice(Base):

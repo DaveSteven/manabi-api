@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS_REVISION = 'b72d06e914aa'
-HEAD_REVISION = 'c3f1a7e29b04'
+HEAD_REVISION = 'd4a8f2b1c6e9'
 USER_STATUS_COLUMNS = {'status', 'display_name', 'updated_at', 'last_login_at', 'disabled_at'}
 
 

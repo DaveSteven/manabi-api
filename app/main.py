@@ -15,9 +15,9 @@ from sqlalchemy.orm import defer
 
 from .auth import bearer, current_admin, current_user, disabled_error, hash_password, issue_token, lock_user, profile, token_digest, verify_password
 from .database import ROOT, get_db
-from .models import Asset, Exam, Occurrence, Practice, PracticeItem, Question, QuestionType, Token, User, WrongQuestion, now
+from .models import Asset, Exam, Occurrence, Practice, PracticeItem, QualityIssue, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AdminPasswordReset, AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminExamOut, AdminExamsOut, AdminPasswordReset, AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -326,6 +326,87 @@ def admin_user_stats(user_id: str, admin=Depends(current_admin), db=Depends(get_
     return {'practices': sum(practice_counts.values()), 'answered': answered_total, 'correct': correct_total,
             'accuracy': correct_total / answered_total if answered_total else 0.0,
             'wrong_questions': sum(wrong_counts.values()), 'levels': items}
+
+
+ADMIN_EXAM_SORT_FIELDS = {
+    'title': Exam.title,
+    'level': Exam.level,
+    'year': Exam.year,
+    'month': Exam.month,
+    'published': Exam.published,
+}
+ADMIN_EXAM_CATEGORIES = ('vocabulary', 'grammar', 'reading', 'listening')
+
+
+def admin_exam_counts(db, exam_ids):
+    counts = {exam_id: dict(question_count=0, available_count=0, pending_review_count=0,
+                            vocabulary_count=0, grammar_count=0, reading_count=0, listening_count=0)
+              for exam_id in exam_ids}
+    if not exam_ids:
+        return counts
+    rows = db.execute(select(Occurrence.exam_id, Occurrence.status, QuestionType.category, func.count())
+        .outerjoin(QuestionType, Occurrence.type_id == QuestionType.id)
+        .where(Occurrence.exam_id.in_(exam_ids))
+        .group_by(Occurrence.exam_id, Occurrence.status, QuestionType.category))
+    for exam_id, status, category, count in rows:
+        entry = counts[exam_id]
+        if status != 'retired':
+            entry['question_count'] += count
+            if category in ADMIN_EXAM_CATEGORIES:
+                entry[f'{category}_count'] += count
+        if status == 'ready':
+            entry['available_count'] += count
+        elif status == 'review':
+            entry['pending_review_count'] += count
+    return counts
+
+
+def admin_exam_out(exam, counts):
+    return dict(id=exam.id, title=exam.title, level=exam.level, year=exam.year, month=exam.month,
+                published=exam.published, **counts)
+
+
+@app.get('/api/v1/admin/exams', response_model=AdminExamsOut, tags=['Admin'],
+         summary='试卷列表（仅管理员）',
+         description='真实试卷数据库只读列表，支持等级、年份、月份、发布状态、质量问题筛选与分页排序。当前未退役题目计入题数，已退役的历史 occurrence 不计入可用内容；质量问题基于当前批次 QualityIssue 判断。')
+def list_admin_exams(level: Level | None = None,
+                     year: int | None = Query(None, ge=1990, le=2100),
+                     month: int | None = Query(None, ge=1, le=12),
+                     published: bool | None = None,
+                     has_issues: bool | None = None,
+                     keyword: str | None = Query(None, max_length=64),
+                     sort: Literal['title', 'level', 'year', 'month', 'published'] = 'year',
+                     order: Literal['asc', 'desc'] = 'desc',
+                     limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+                     admin=Depends(current_admin), db=Depends(get_db)):
+    filters = []
+    if level:
+        filters.append(Exam.level == level)
+    if year is not None:
+        filters.append(Exam.year == year)
+    if month is not None:
+        filters.append(Exam.month == month)
+    if published is not None:
+        filters.append(Exam.published.is_(published))
+    term = keyword.strip() if keyword else ''
+    if term:
+        filters.append(func.lower(Exam.title).like(keyword_pattern(term), escape='\\'))
+    quality_exists = (select(QualityIssue.id)
+        .join(Occurrence, Occurrence.id == QualityIssue.occurrence_id)
+        .where(Occurrence.exam_id == Exam.id,
+               Occurrence.status != 'retired',
+               QualityIssue.import_id == Occurrence.import_id)
+        .exists())
+    if has_issues is not None:
+        filters.append(quality_exists if has_issues else ~quality_exists)
+    column = ADMIN_EXAM_SORT_FIELDS[sort]
+    ordering = column.asc() if order == 'asc' else column.desc()
+    rows = list(db.scalars(select(Exam).options(defer(Exam.source_metadata)).where(*filters)
+        .order_by(ordering, Exam.id).limit(limit).offset(offset)))
+    counts = admin_exam_counts(db, [exam.id for exam in rows])
+    return {'items': [admin_exam_out(exam, counts[exam.id]) for exam in rows],
+            'total': db.scalar(select(func.count()).select_from(Exam).where(*filters)),
+            'limit': limit, 'offset': offset}
 
 
 @app.post('/api/v1/auth/login', response_model=TokenOut, tags=['Account'])

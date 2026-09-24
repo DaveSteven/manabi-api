@@ -232,6 +232,29 @@ class PracticesOut(BaseModel):
     offset: int
 
 
+class AdminExamOut(BaseModel):
+    id: str
+    title: str
+    level: str
+    year: int | None
+    month: int | None
+    published: bool
+    question_count: int
+    available_count: int
+    pending_review_count: int
+    vocabulary_count: int
+    grammar_count: int
+    reading_count: int
+    listening_count: int
+
+
+class AdminExamsOut(BaseModel):
+    items: list[AdminExamOut]
+    total: int
+    limit: int
+    offset: int
+
+
 class WrongOut(BaseModel):
     occurrence_id: str
     level: str
