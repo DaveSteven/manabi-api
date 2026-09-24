@@ -17,7 +17,7 @@ from .auth import bearer, current_admin, current_user, disabled_error, hash_pass
 from .database import ROOT, get_db
 from .models import Asset, Exam, Occurrence, Practice, PracticeItem, QualityIssue, Question, QuestionType, Token, User, WrongQuestion, now
 from .practice import choose_occurrences, item_out, make_snapshot, practice_out
-from .schemas import AdminExamOut, AdminExamsOut, AdminPasswordReset, AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
+from .schemas import AdminExamOut, AdminExamOverviewOut, AdminExamsOut, AdminPasswordReset, AdminUserDetailOut, AdminUserDisable, AdminUserOut, AdminUserStatsOut, AdminUserUpdate, AdminUsersOut, AnswerIn, Credentials, InternalAccountCreate, ItemOut, Level, PracticeCreate, PracticeOut, PracticeSummary, ProfileUpdate, TokenOut, UserOut
 from .schemas import IntensiveListeningOut, ExamsOut, LevelsOut, PracticesOut, StatsOut, TypesOut, WrongQuestionsOut
 
 app = FastAPI(title='Manabi API', version='1.0.0', description='JLPT 专项练习 API。所有时间为 UTC，媒体地址相对于 API 根地址。')
@@ -366,6 +366,64 @@ def admin_exam_out(exam, counts):
                 published=exam.published, **counts)
 
 
+ADMIN_EXAM_STATUSES = ('ready', 'review', 'hidden', 'retired')
+ADMIN_EXAM_SEVERITIES = ('error', 'warning', 'info')
+
+
+def admin_exam_overview_out(db, exam):
+    categories = {category: dict(question_count=0, available_count=0, pending_review_count=0)
+                  for category in ADMIN_EXAM_CATEGORIES}
+    types = {}
+    statuses = {status: 0 for status in ADMIN_EXAM_STATUSES}
+    active_total = retired_total = 0
+    rows = db.execute(select(Occurrence.status, Occurrence.type_id, QuestionType.category,
+                             QuestionType.name_zh, QuestionType.name_ja, QuestionType.sort_order, func.count())
+        .outerjoin(QuestionType, Occurrence.type_id == QuestionType.id)
+        .where(Occurrence.exam_id == exam.id)
+        .group_by(Occurrence.status, Occurrence.type_id, QuestionType.category,
+                  QuestionType.name_zh, QuestionType.name_ja, QuestionType.sort_order))
+    for status, type_id, category, name_zh, name_ja, sort_order, count in rows:
+        statuses[status] = statuses.get(status, 0) + count
+        if status == 'retired':
+            retired_total += count
+            continue
+        active_total += count
+        if category in categories:
+            entry = categories[category]
+            entry['question_count'] += count
+            if status == 'ready':
+                entry['available_count'] += count
+            elif status == 'review':
+                entry['pending_review_count'] += count
+        entry = types.setdefault(type_id, dict(type_id=type_id, name_zh=name_zh, name_ja=name_ja,
+            category=category, sort_order=sort_order if sort_order is not None else 10 ** 6,
+            question_count=0, available_count=0, pending_review_count=0))
+        entry['question_count'] += count
+        if status == 'ready':
+            entry['available_count'] += count
+        elif status == 'review':
+            entry['pending_review_count'] += count
+    quality_counts = {severity: 0 for severity in ADMIN_EXAM_SEVERITIES}
+    quality_rows = db.execute(select(QualityIssue.severity, func.count())
+        .join(Occurrence, Occurrence.id == QualityIssue.occurrence_id)
+        .where(Occurrence.exam_id == exam.id, Occurrence.status != 'retired',
+               QualityIssue.import_id == Occurrence.import_id)
+        .group_by(QualityIssue.severity))
+    for severity, count in quality_rows:
+        quality_counts[severity] = quality_counts.get(severity, 0) + count
+    type_rows = sorted(types.values(), key=lambda item: (item['sort_order'], item['type_id'] or ''))
+    return dict(id=exam.id, title=exam.title, level=exam.level, year=exam.year, month=exam.month,
+                published=exam.published, source_id=exam.source_id,
+                question_count=active_total, available_count=statuses.get('ready', 0),
+                pending_review_count=statuses.get('review', 0), retired_count=retired_total,
+                categories=[dict(category=category, **categories[category]) for category in ADMIN_EXAM_CATEGORIES],
+                types=[{key: value for key, value in item.items() if key != 'sort_order'} for item in type_rows],
+                statuses=[dict(status=status, count=statuses.get(status, 0)) for status in ADMIN_EXAM_STATUSES],
+                qualities=[dict(severity=severity, count=quality_counts.get(severity, 0))
+                           for severity in ADMIN_EXAM_SEVERITIES],
+                quality_issue_count=sum(quality_counts.values()))
+
+
 @app.get('/api/v1/admin/exams', response_model=AdminExamsOut, tags=['Admin'],
          summary='试卷列表（仅管理员）',
          description='真实试卷数据库只读列表，支持等级、年份、月份、发布状态、质量问题筛选与分页排序。当前未退役题目计入题数，已退役的历史 occurrence 不计入可用内容；质量问题基于当前批次 QualityIssue 判断。')
@@ -407,6 +465,16 @@ def list_admin_exams(level: Level | None = None,
     return {'items': [admin_exam_out(exam, counts[exam.id]) for exam in rows],
             'total': db.scalar(select(func.count()).select_from(Exam).where(*filters)),
             'limit': limit, 'offset': offset}
+
+
+@app.get('/api/v1/admin/exams/{exam_id}', response_model=AdminExamOverviewOut, tags=['Admin'],
+         summary='试卷概览（仅管理员）',
+         description='返回试卷基础信息、分类/题型/内容状态统计及当前批次质量问题统计，均为只读。历史与退役 occurrence 不计入当前题数或可用内容。')
+def admin_exam_overview(exam_id: str, admin=Depends(current_admin), db=Depends(get_db)):
+    exam = db.get(Exam, exam_id)
+    if exam is None:
+        raise HTTPException(404, 'Exam not found')
+    return admin_exam_overview_out(db, exam)
 
 
 @app.post('/api/v1/auth/login', response_model=TokenOut, tags=['Account'])

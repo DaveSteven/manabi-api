@@ -255,6 +255,52 @@ class AdminExamsOut(BaseModel):
     offset: int
 
 
+class AdminExamCategoryCount(BaseModel):
+    category: str
+    question_count: int
+    available_count: int
+    pending_review_count: int
+
+
+class AdminExamTypeCount(BaseModel):
+    type_id: str | None
+    name_zh: str | None
+    name_ja: str | None
+    category: str | None
+    question_count: int
+    available_count: int
+    pending_review_count: int
+
+
+class AdminExamStatusCount(BaseModel):
+    status: str
+    count: int
+
+
+class AdminExamQualityCount(BaseModel):
+    severity: str
+    count: int
+
+
+class AdminExamOverviewOut(BaseModel):
+    id: str
+    title: str
+    level: str
+    year: int | None
+    month: int | None
+    published: bool
+    source_id: str
+    question_count: int
+    available_count: int
+    pending_review_count: int
+    retired_count: int
+    categories: list[AdminExamCategoryCount]
+    types: list[AdminExamTypeCount]
+    statuses: list[AdminExamStatusCount]
+    qualities: list[AdminExamQualityCount]
+    quality_issue_count: int
+
+
 class WrongOut(BaseModel):
     occurrence_id: str
     level: str
